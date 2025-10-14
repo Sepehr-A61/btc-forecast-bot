@@ -1,0 +1,24 @@
+name: Daily BTC Forecast
+
+on:
+  schedule:
+    - cron: '0 12 * * *'   # Runs daily at 12:00 UTC
+  workflow_dispatch:       # Optional: allows manual trigger
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run BTC forecast script
+        run: python btc_forecast.py
