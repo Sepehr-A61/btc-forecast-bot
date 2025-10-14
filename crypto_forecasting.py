@@ -148,7 +148,7 @@ forecast.to_csv("BTC_forecast.csv", index=False)
 # 9️⃣ Send Daily Email
 # ---------------------------
 send_email(
-    to_emails=["moses.abdi@gmail.com"],  # 🔁 add more recipients here
+    to_emails=["nazanin.asadi.a@gmail.com", "kianakia399@gmail.com", "moses.abdi@gmail.com"],  # 🔁 add more recipients here
     subject=f"Daily BTC Forecast Report ({datetime.now().strftime('%Y-%m-%d')})",
     body="Attached is today's BTC forecast report and visualization.",
     attachments=["BTC_forecast.csv", "BTC_forecast_report.png"],
