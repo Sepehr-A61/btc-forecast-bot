@@ -7,172 +7,149 @@ Original file is located at
     https://colab.research.google.com/drive/1stF1QRu6VZKsL_icW4zBsj9aSh6WXA9p
 """
 
-!pip install yfinance
-!pip install pandas
-!pip install pandas_ta
-!pip install sklearn
-
-# ============================================
-# DAILY BITCOIN FORECAST & EMAIL REPORT (COLAB)
-# ============================================
-
 # ---------------------------
-# 1️⃣ Imports
+# BTC Daily Forecast Script (GitHub-Ready)
 # ---------------------------
+
 import yfinance as yf
 import pandas as pd
 import pandas_ta as ta
-from xgboost import XGBClassifier
 from sklearn.model_selection import train_test_split
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import classification_report, confusion_matrix
 from prophet import Prophet
 import matplotlib.pyplot as plt
-import datetime as dt
 import smtplib
-from email.message import EmailMessage
-import matplotlib.dates as mdates
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from email.mime.base import MIMEBase
+from email import encoders
+import os
+from datetime import datetime
+
+# ---------------------------
+# 1️⃣ Email Configuration (GitHub Secrets)
+# ---------------------------
+EMAIL_USER = os.getenv("EMAIL_USER")      # <-- from GitHub Secrets
+EMAIL_PASS = os.getenv("EMAIL_PASS")      # <-- from GitHub Secrets
+
+def send_email(to_emails, subject, body, attachments=None):
+    """Send email with optional attachments."""
+    msg = MIMEMultipart()
+    msg["From"] = EMAIL_USER
+    msg["To"] = ", ".join(to_emails)
+    msg["Subject"] = subject
+    msg.attach(MIMEText(body, "plain"))
+
+    if attachments:
+        for attachment in attachments:
+            with open(attachment, "rb") as f:
+                part = MIMEBase("application", "octet-stream")
+                part.set_payload(f.read())
+            encoders.encode_base64(part)
+            part.add_header("Content-Disposition", f"attachment; filename={os.path.basename(attachment)}")
+            msg.attach(part)
+
+    try:
+        server = smtplib.SMTP("smtp.gmail.com", 587)
+        server.starttls()
+        server.login(EMAIL_USER, EMAIL_PASS)
+        server.send_message(msg)
+        server.quit()
+        print("✅ Email sent successfully!")
+    except Exception as e:
+        print(f"❌ Error sending email: {e}")
+
 
 # ---------------------------
 # 2️⃣ Download BTC Data
 # ---------------------------
-btc = yf.download("BTC-USD", start="2015-01-01", end=dt.date.today(), auto_adjust=True)
-
-# Flatten MultiIndex columns if any
-if isinstance(btc.columns, pd.MultiIndex):
-    btc.columns = btc.columns.get_level_values(0)
+btc = yf.download("BTC-USD", start="2015-01-01", end=datetime.now().strftime("%Y-%m-%d"), auto_adjust=True)
+btc.dropna(inplace=True)
 
 # ---------------------------
 # 3️⃣ Technical Indicators
 # ---------------------------
-btc['rsi'] = ta.rsi(btc['Close'], length=14)
-macd = ta.macd(btc['Close'], fast=12, slow=26, signal=9)
-btc['macd'] = macd.iloc[:, 0]
-btc['ema50'] = ta.ema(btc['Close'], length=50)
-btc['ema200'] = ta.ema(btc['Close'], length=200)
-bb = ta.bbands(btc['Close'], length=20)
-bb_upper = [c for c in bb.columns if "BBU" in c][0]
-bb_lower = [c for c in bb.columns if "BBL" in c][0]
-btc['bb_high'] = bb[bb_upper]
-btc['bb_low'] = bb[bb_lower]
-
-# Feature expansion
-btc['momentum'] = btc['Close'] - btc['Close'].shift(5)
-btc['returns'] = btc['Close'].pct_change()
-btc['volatility'] = btc['returns'].rolling(10).std()
-btc['ema_crossover'] = (btc['ema50'] > btc['ema200']).astype(int)
-btc['rsi_lag1'] = btc['rsi'].shift(1)
-btc['macd_lag1'] = btc['macd'].shift(1)
+btc["rsi"] = ta.rsi(btc["Close"], length=14)
+macd = ta.macd(btc["Close"])
+btc["macd"] = macd.iloc[:, 0]
+btc["ema50"] = ta.ema(btc["Close"], length=50)
+btc["ema200"] = ta.ema(btc["Close"], length=200)
+bb = ta.bbands(btc["Close"], length=20)
+btc["bb_high"] = bb.iloc[:, 0]
+btc["bb_low"] = bb.iloc[:, 2]
 btc.dropna(inplace=True)
 
 # ---------------------------
 # 4️⃣ Target Variable
 # ---------------------------
-btc['future_close'] = btc['Close'].shift(-1)
-btc['target'] = (btc['future_close'] > btc['Close']).astype(int)
+btc["future_close"] = btc["Close"].shift(-1)
+btc["target"] = (btc["future_close"] > btc["Close"]).astype(int)
 btc.dropna(inplace=True)
 
 # ---------------------------
-# 5️⃣ Feature Selection
+# 5️⃣ Train Model
 # ---------------------------
-features = [
-    'rsi', 'macd', 'ema50', 'ema200', 'bb_high', 'bb_low',
-    'momentum', 'returns', 'volatility', 'ema_crossover',
-    'rsi_lag1', 'macd_lag1'
-]
+features = ["rsi", "macd", "ema50", "ema200", "bb_high", "bb_low"]
 X = btc[features]
-y = btc['target']
+y = btc["target"]
 
-# ---------------------------
-# 6️⃣ Train-Test Split & XGBoost
-# ---------------------------
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=0.2, random_state=42, shuffle=False
-)
-
-model = XGBClassifier(
-    n_estimators=300,
-    learning_rate=0.05,
-    max_depth=6,
-    subsample=0.8,
-    colsample_bytree=0.8,
-    random_state=42,
-    use_label_encoder=False,
-    eval_metric='logloss'
-)
-
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, shuffle=False, random_state=42)
+model = RandomForestClassifier(n_estimators=200, random_state=42)
 model.fit(X_train, y_train)
-y_pred = model.predict(X_test)
-btc.loc[X_test.index, 'prediction'] = y_pred
+
+print(f"Model Accuracy: {model.score(X_test, y_test):.3f}")
+print("\nClassification Report:\n", classification_report(y_test, model.predict(X_test)))
+print("\nConfusion Matrix:\n", confusion_matrix(y_test, model.predict(X_test)))
 
 # ---------------------------
-# 7️⃣ Forecast with Prophet
+# 6️⃣ Forecast with Prophet
 # ---------------------------
-df_prophet = btc.reset_index()[['Date', 'Close']].rename(columns={'Date': 'ds', 'Close': 'y'})
-prophet_model = Prophet(daily_seasonality=True)
-prophet_model.fit(df_prophet)
-future = prophet_model.make_future_dataframe(periods=30)
-forecast = prophet_model.predict(future)
+prophet_df = btc.reset_index()[["Date", "Close"]].rename(columns={"Date": "ds", "Close": "y"})
+prophet = Prophet(daily_seasonality=True)
+prophet.fit(prophet_df)
+
+future = prophet.make_future_dataframe(periods=30)
+forecast = prophet.predict(future)
 
 # ---------------------------
-# 8️⃣ Combined 1-Month Chart (Historical + Forecast)
+# 7️⃣ Visualization (Last 30 Days + 30-Day Forecast)
 # ---------------------------
 today = btc.index.max()
 one_month_ago = today - pd.Timedelta(days=30)
 btc_recent = btc.loc[btc.index >= one_month_ago]
-forecast_recent = forecast.loc[forecast['ds'] > today]
+forecast_recent = forecast.loc[forecast["ds"] > today]
 
 plt.figure(figsize=(12, 6))
-plt.plot(btc_recent.index, btc_recent['Close'], label='Actual (Last 30 Days)', color='black', linewidth=2)
-plt.plot(forecast_recent['ds'], forecast_recent['yhat'], label='Forecast (Next 30 Days)',
-         color='orange', linestyle='--', linewidth=2)
-plt.fill_between(forecast_recent['ds'],
-                 forecast_recent['yhat_lower'],
-                 forecast_recent['yhat_upper'],
-                 color='orange', alpha=0.2, label='Forecast Confidence Interval')
-plt.axvline(x=today, color='gray', linestyle=':', linewidth=1.5, label='Today')
-plt.text(today, btc_recent['Close'].iloc[-1],
-         f"${btc_recent['Close'].iloc[-1]:,.0f}", color='black', ha='right', va='bottom', fontsize=9)
-plt.text(forecast_recent['ds'].iloc[-1], forecast_recent['yhat'].iloc[-1],
-         f"${forecast_recent['yhat'].iloc[-1]:,.0f}", color='orange', ha='left', va='bottom', fontsize=9)
-plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%b %d'))
-plt.xticks(rotation=30)
+plt.plot(btc_recent.index, btc_recent["Close"], label="Actual (Last 30 Days)", color="black", linewidth=2)
+plt.plot(forecast_recent["ds"], forecast_recent["yhat"], label="Forecast (Next 30 Days)", color="orange", linestyle="--", linewidth=2)
+plt.fill_between(
+    forecast_recent["ds"],
+    forecast_recent["yhat_lower"],
+    forecast_recent["yhat_upper"],
+    color="orange",
+    alpha=0.2,
+    label="Confidence Interval",
+)
 plt.title("BTC Price: Last 30 Days + Next 30 Days Forecast", fontsize=14)
 plt.xlabel("Date")
 plt.ylabel("Price (USD)")
 plt.legend()
 plt.grid(True)
 plt.tight_layout()
-
-# Save chart and forecast CSV
-chart_filename = f"btc_forecast_{today.date()}.png"
-csv_filename = f"btc_forecast_{today.date()}.csv"
-plt.savefig(chart_filename, dpi=300)
-forecast.to_csv(csv_filename, index=False)
-plt.show()
+plt.savefig("BTC_forecast_report.png")
 
 # ---------------------------
-# 9️⃣ Email the Report
+# 8️⃣ Save Forecast CSV
 # ---------------------------
-def send_email(to_emails, subject, body, attachments=[]):
-    msg = EmailMessage()
-    msg['Subject'] = subject
-    msg['From'] = "moses.abdi@gmail.com"       # <--
-    msg['To'] = ", ".join(to_emails)
-    msg.set_content(body)
+forecast.to_csv("BTC_forecast.csv", index=False)
 
-    for file in attachments:
-        with open(file, 'rb') as f:
-            data = f.read()
-        msg.add_attachment(data, maintype='application', subtype='octet-stream', filename=file)
-
-    with smtplib.SMTP_SSL('smtp.gmail.com', 465) as smtp:
-        smtp.login("moses.abdi@gmail.com", "jhcv bnhi mksy ctnp")  # <-- Use App Password
-        smtp.send_message(msg)
-
-# Send daily report
+# ---------------------------
+# 9️⃣ Send Daily Email
+# ---------------------------
 send_email(
-    to_emails=["nazanin.asadi.a@gmail.com", "kianakia399@gmail.com"],  # <-- recipients
-    subject=f"Daily BTC Forecast Report ({today.date()})",
-    body="Attached is the daily BTC forecast chart and CSV report.",
-    attachments=[chart_filename, csv_filename]
+    to_emails=["your_email@gmail.com"],  # 🔁 add more recipients here
+    subject=f"Daily BTC Forecast Report ({datetime.now().strftime('%Y-%m-%d')})",
+    body="Attached is today's BTC forecast report and visualization.",
+    attachments=["BTC_forecast.csv", "BTC_forecast_report.png"],
 )
-
