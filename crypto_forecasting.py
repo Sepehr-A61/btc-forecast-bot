@@ -121,15 +121,37 @@ btc_recent = btc.loc[btc.index >= one_month_ago]
 forecast_recent = forecast.loc[forecast["ds"] > today]
 
 plt.figure(figsize=(12, 6))
-plt.plot(btc_recent.index, btc_recent["Close"], label="Actual (Last 30 Days)", color="black", linewidth=2)
-plt.plot(forecast_recent["ds"], forecast_recent["yhat"], label="Forecast (Next 30 Days)", color="orange", linestyle="--", linewidth=2)
+plt.plot(
+    btc_recent.index, 
+    btc_recent["Close"], 
+    label="Actual (Last 30 Days)", 
+    color="black", 
+    linewidth=2
+)
+plt.plot(
+    forecast_recent["ds"], 
+    forecast_recent["yhat"], 
+    label="Forecast (Next 30 Days)", 
+    color="orange", 
+    linestyle="--", 
+    linewidth=2
+)
 plt.fill_between(
     forecast_recent["ds"],
     forecast_recent["yhat_lower"],
     forecast_recent["yhat_upper"],
     color="orange",
     alpha=0.2,
-    label="Confidence Interval",
+    label="Confidence Interval"
+)
+
+plt.title("BTC Price: Actual vs Forecast")
+plt.xlabel("Date")
+plt.ylabel("Price")
+plt.legend()
+plt.grid(True)
+plt.show()
+
 )
 plt.title("BTC Price: Last 30 Days + Next 30 Days Forecast", fontsize=14)
 plt.xlabel("Date")
