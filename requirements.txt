@@ -2,6 +2,7 @@ yfinance==0.2.38
 pandas==2.2.3
 pandas-ta-openbb==0.4.22
 scikit-learn==1.5.2
+pip install prophet --upgrade
 prophet==1.1.5
 matplotlib==3.9.2
 xgboost==2.1.1
