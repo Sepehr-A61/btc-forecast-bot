@@ -1,6 +1,6 @@
 yfinance==0.2.38
 pandas==2.2.3
-pandas-ta @ git+https://github.com/kieran-mackle/pandas-ta.git
+pandas-ta-openbb
 scikit-learn==1.5.2
 prophet==1.1.5
 matplotlib==3.9.2
