@@ -152,7 +152,6 @@ plt.legend()
 plt.grid(True)
 plt.show()
 
-)
 plt.title("BTC Price: Last 30 Days + Next 30 Days Forecast", fontsize=14)
 plt.xlabel("Date")
 plt.ylabel("Price (USD)")
