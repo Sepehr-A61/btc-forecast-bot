@@ -113,7 +113,7 @@ future = prophet.make_future_dataframe(periods=30)
 forecast = prophet.predict(future)
 
 # ---------------------------
-# 7️⃣ Visualization (Last 30 Days + 30-Day Forecast)
+# 7️⃣ Visualization (Last 30 Days + 30-Day Forecast) & Save
 # ---------------------------
 today = btc.index.max()
 one_month_ago = today - pd.Timedelta(days=30)
@@ -121,6 +121,8 @@ btc_recent = btc.loc[btc.index >= one_month_ago]
 forecast_recent = forecast.loc[forecast["ds"] > today]
 
 plt.figure(figsize=(12, 6))
+
+# Plot actual BTC prices (last 30 days)
 plt.plot(
     btc_recent.index, 
     btc_recent["Close"], 
@@ -128,6 +130,8 @@ plt.plot(
     color="black", 
     linewidth=2
 )
+
+# Plot forecasted BTC prices (next 30 days)
 plt.plot(
     forecast_recent["ds"], 
     forecast_recent["yhat"], 
@@ -136,6 +140,8 @@ plt.plot(
     linestyle="--", 
     linewidth=2
 )
+
+# Fill confidence interval
 plt.fill_between(
     forecast_recent["ds"],
     forecast_recent["yhat_lower"],
@@ -145,20 +151,19 @@ plt.fill_between(
     label="Confidence Interval"
 )
 
-plt.title("BTC Price: Actual vs Forecast")
-plt.xlabel("Date")
-plt.ylabel("Price")
-plt.legend()
-plt.grid(True)
-plt.show()
-
+# Labels, title, grid, legend
 plt.title("BTC Price: Last 30 Days + Next 30 Days Forecast", fontsize=14)
 plt.xlabel("Date")
 plt.ylabel("Price (USD)")
 plt.legend()
 plt.grid(True)
 plt.tight_layout()
+
+# Save figure
 plt.savefig("BTC_forecast_report.png")
+
+# Show plot
+plt.show()
 
 # ---------------------------
 # 8️⃣ Save Forecast CSV
@@ -169,8 +174,9 @@ forecast.to_csv("BTC_forecast.csv", index=False)
 # 9️⃣ Send Daily Email
 # ---------------------------
 send_email(
-    to_emails=["nazanin.asadi.a@gmail.com", "kianakia399@gmail.com", "moses.abdi@gmail.com"],  # 🔁 add more recipients here
+    to_emails=["nazanin.asadi.a@gmail.com", "kianakia399@gmail.com", "moses.abdi@gmail.com"],  # add more recipients here
     subject=f"Daily BTC Forecast Report ({datetime.now().strftime('%Y-%m-%d')})",
     body="Attached is today's BTC forecast report and visualization.",
     attachments=["BTC_forecast.csv", "BTC_forecast_report.png"],
 )
+
