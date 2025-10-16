@@ -26,12 +26,9 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          # Pin NumPy to <2.0 for Prophet compatibility
-          pip install "numpy<2.0"
-          # Upgrade Prophet to latest compatible version
-          pip install --upgrade prophet
-          # Install other dependencies from requirements.txt
-          pip install -r requirements.txt
+          python -m pip install "numpy<2.0"
+          python -m pip install --upgrade prophet
+          python -m pip install -r requirements.txt
 
       - name: Run Crypto Forecast Script
         run: python crypto_forecasting.py
